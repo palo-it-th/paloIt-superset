@@ -68,6 +68,7 @@ DEPRECATED_FIELDS = (
     DeprecatedField(old_name="timeseries_limit_metric", new_name="series_limit_metric"),
 )
 
+
 class QueryObject:  # pylint: disable=too-many-instance-attributes
     """
     The query objects are constructed on the client.
@@ -152,7 +153,6 @@ class QueryObject:  # pylint: disable=too-many-instance-attributes
         self.inner_from_dttm = kwargs.get("inner_from_dttm")
         self.inner_to_dttm = kwargs.get("inner_to_dttm")
         self._rename_deprecated_fields(kwargs)
-        self._move_deprecated_extra_fields(kwargs)
 
     def _set_annotation_layers(
         self, annotation_layers: list[dict[str, Any]] | None
@@ -241,6 +241,7 @@ class QueryObject:  # pylint: disable=too-many-instance-attributes
         try:
             self._validate_there_are_no_missing_series()
             self._validate_no_have_duplicate_labels()
+            self._sanitize_filters()
             return None
         except QueryObjectValidationError as ex:
             if raise_exceptions:
