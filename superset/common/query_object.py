@@ -68,12 +68,6 @@ DEPRECATED_FIELDS = (
     DeprecatedField(old_name="timeseries_limit_metric", new_name="series_limit_metric"),
 )
 
-DEPRECATED_EXTRAS_FIELDS = (
-    DeprecatedField(old_name="where", new_name="where"),
-    DeprecatedField(old_name="having", new_name="having"),
-)
-
-
 class QueryObject:  # pylint: disable=too-many-instance-attributes
     """
     The query objects are constructed on the client.
@@ -84,7 +78,6 @@ class QueryObject:  # pylint: disable=too-many-instance-attributes
     apply_fetch_values_predicate: bool
     columns: list[Column]
     datasource: BaseDatasource | None
-    extras: dict[str, Any]
     filter: list[QueryObjectFilterClause]
     from_dttm: datetime | None
     granularity: str | None
@@ -115,7 +108,6 @@ class QueryObject:  # pylint: disable=too-many-instance-attributes
         apply_fetch_values_predicate: bool = False,
         columns: list[Column] | None = None,
         datasource: BaseDatasource | None = None,
-        extras: dict[str, Any] | None = None,
         filters: list[QueryObjectFilterClause] | None = None,
         granularity: str | None = None,
         is_rowcount: bool = False,
@@ -138,7 +130,6 @@ class QueryObject:  # pylint: disable=too-many-instance-attributes
         self.apply_fetch_values_predicate = apply_fetch_values_predicate or False
         self.columns = columns or []
         self.datasource = datasource
-        self.extras = extras or {}
         self.filter = filters or []
         self.granularity = granularity
         self.is_rowcount = is_rowcount
@@ -232,28 +223,6 @@ class QueryObject:  # pylint: disable=too-many-instance-attributes
                         )
                     setattr(self, field.new_name, value)
 
-    def _move_deprecated_extra_fields(self, kwargs: dict[str, Any]) -> None:
-        # move deprecated extras fields to extras
-        for field in DEPRECATED_EXTRAS_FIELDS:
-            if field.old_name in kwargs:
-                logger.warning(
-                    "The field `%s` is deprecated and should "
-                    "be passed to `extras` via the `%s` property.",
-                    field.old_name,
-                    field.new_name,
-                )
-                value = kwargs[field.old_name]
-                if value:
-                    if hasattr(self.extras, field.new_name):
-                        logger.warning(
-                            "The field `%s` is already populated in "
-                            "`extras`, replacing value with contents "
-                            "from `%s`.",
-                            field.new_name,
-                            field.old_name,
-                        )
-                    self.extras[field.new_name] = value
-
     @property
     def metric_names(self) -> list[str]:
         """Return metrics names (labels), coerce adhoc metrics to strings."""
@@ -272,7 +241,6 @@ class QueryObject:  # pylint: disable=too-many-instance-attributes
         try:
             self._validate_there_are_no_missing_series()
             self._validate_no_have_duplicate_labels()
-            self._sanitize_filters()
             return None
         except QueryObjectValidationError as ex:
             if raise_exceptions:
@@ -291,17 +259,6 @@ class QueryObject:  # pylint: disable=too-many-instance-attributes
                 )
             )
 
-    def _sanitize_filters(self) -> None:
-        for param in ("where", "having"):
-            clause = self.extras.get(param)
-            if clause:
-                try:
-                    sanitized_clause = sanitize_clause(clause)
-                    if sanitized_clause != clause:
-                        self.extras[param] = sanitized_clause
-                except QueryClauseValidationException as ex:
-                    raise QueryObjectValidationError(ex.message) from ex
-
     def _validate_there_are_no_missing_series(self) -> None:
         missing_series = [col for col in self.series_columns if col not in self.columns]
         if missing_series:
@@ -317,7 +274,6 @@ class QueryObject:  # pylint: disable=too-many-instance-attributes
         query_object_dict = {
             "apply_fetch_values_predicate": self.apply_fetch_values_predicate,
             "columns": self.columns,
-            "extras": self.extras,
             "filter": self.filter,
             "from_dttm": self.from_dttm,
             "granularity": self.granularity,
