@@ -1435,11 +1435,12 @@ class ChartDataResponseResult(Schema):
         required=True,
         allow_none=None,
     )
-    query = fields.String(
-        metadata={"description": "The executed query statement"},
-        required=True,
-        allow_none=False,
-    )
+    # Remove 'query' key from api response
+    # query = fields.String(
+    #     metadata={"description": "The executed query statement"},
+    #     required=True,
+    #     allow_none=False,
+    # )
     status = fields.String(
         metadata={"description": "Status of the query"},
         validate=validate.OneOf(
